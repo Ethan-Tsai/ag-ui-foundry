@@ -4,13 +4,47 @@
 
 @import "./style.css";
 
-html, body {
-  height: 100%;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
-  margin: 0;
-  background: #f8fafc;
-  color: #0f172a;
-  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-family: "Sora", "Segoe UI", sans-serif;
+  color: #102528;
+  background: #f4f1e8;
+}
+
+::selection {
+  background: rgba(15, 118, 110, 0.24);
+  color: #08292d;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(53, 80, 86, 0.35);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(53, 80, 86, 0.52);
 }

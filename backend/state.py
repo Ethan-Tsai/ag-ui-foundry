@@ -1,97 +1,98 @@
-"""Recipe agent example demonstrating shared state management (Feature 3)."""
+"""State management for PowerBI QA Assistant."""
 
 from __future__ import annotations
 
 from agent_framework import tool
 from pydantic import BaseModel, Field
 
-class Location(BaseModel):
-    """Project location details."""
 
-    country: str = Field(..., description="Country name")
-    district: str = Field(..., description="District or region")
-    lat: float = Field(..., description="Latitude")
-    long: float = Field(..., description="Longitude")
+class DataPoint(BaseModel):
+    """A specific data metric or finding."""
 
-
-class Component(BaseModel):
-    """A project component with environmental impact."""
-
-    type: str = Field(..., description="Component type")
-    description: str = Field(..., description="Component description")
-    environment_impact: str = Field(..., description="Environmental impact")
+    metric_name: str = Field(..., description="Name of the metric or data point")
+    value: str = Field(..., description="Value of the metric")
+    context: str = Field(..., description="Additional context or formatting details")
 
 
-class Project(BaseModel):
-    """A complete project."""
+class PowerBIState(BaseModel):
+    """The current state of the PowerBI QA analysis."""
 
-    name: str = Field(..., description="Project name")
-    description: str = Field(..., description="Project description")
-    location: Location = Field(..., description="Project location")
-    components: list[Component] = Field(..., description="Project components")
-
-
-@tool
-def update_title(name: str) -> str:
-    """Update the project title.
-
-    Args:
-        name: The updated project name.
-
-    Returns:
-        Confirmation that the title was updated.
-    """
-    return "Project title updated."
+    dashboard_context: str = Field(..., description="The dashboard or dataset currently in context")
+    current_insights: str = Field(..., description="Key insights or analysis from the latest query")
+    data_points: list[DataPoint] = Field(..., description="Key metrics identified during analysis")
 
 
-@tool
-def update_description(description: str) -> str:
-    """Update the project description.
+STATE_SCHEMA = PowerBIState
 
-    Args:
-        description: The updated project description.
+PREDICT_STATE_CONFIG: dict[str, dict[str, str]] = {
+    "dashboard_context": {
+        "tool": "update_dashboard_context",
+        "tool_argument": "dashboard_context",
+    },
+    "current_insights": {
+        "tool": "update_insights",
+        "tool_argument": "current_insights",
+    },
+    "data_points": {
+        "tool": "add_data_points",
+        "tool_argument": "data_points",
+    },
+}
 
-    Returns:
-        Confirmation that the description was updated.
-    """
-    return "Project description updated."
+INITIAL_POWERBI_STATE: dict[str, object] = {
+    "dashboard_context": "",
+    "current_insights": "",
+    "data_points": [],
+}
 
 
 @tool
-def update_location(location: Location) -> str:
-    """Update the project location.
+def update_dashboard_context(dashboard_context: str) -> str:
+    """Update the current dashboard context.
 
     Args:
-        location: The updated project location details.
+        dashboard_context: The name or context of the dataset/dashboard.
 
     Returns:
-        Confirmation that the location was updated.
+        Confirmation that the dashboard context was updated.
     """
-    return "Project location updated."
+    return "Dashboard context updated."
 
 
 @tool
-def add_component(components: list[Component]) -> str:
-    """Update project components after adding or editing an item.
-
-    You MUST provide the complete components list, including all existing items,
-    plus any newly added or modified component.
+def update_insights(current_insights: str) -> str:
+    """Update the current analysis or insights based on user queries.
 
     Args:
-        components: The complete, updated components list.
+        current_insights: The updated insights summary.
 
     Returns:
-        Confirmation that components were updated.
+        Confirmation that insights were updated.
     """
-    return "Project components updated."
+    return "Insights updated."
+
+
+@tool
+def add_data_points(data_points: list[DataPoint]) -> str:
+    """Update the extracted key data points.
+
+    You MUST provide the complete list, including all existing items you want to keep,
+    plus any newly added or modified data point.
+
+    Args:
+        data_points: The complete, updated data points list.
+
+    Returns:
+        Confirmation that data points were updated.
+    """
+    return "Data points updated."
 
 
 def _rebuild_tool_models() -> None:
     tool_models = (
-        update_title,
-        update_description,
-        update_location,
-        add_component,
+        update_dashboard_context,
+        update_insights,
+        add_data_points,
     )
     type_namespace = globals()
     for tool_fn in tool_models:

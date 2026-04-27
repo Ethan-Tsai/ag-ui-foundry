@@ -9,35 +9,38 @@ from typing import Any
 from agent_framework import Agent, SupportsChatGetResponse
 from agent_framework.ag_ui import AgentFrameworkAgent
 from backend.agent_tool import build_foundry_qa_tool
-from backend.state import update_title, update_description, update_location, add_component
+from backend.state import (
+    PREDICT_STATE_CONFIG,
+    STATE_SCHEMA,
+    add_data_points,
+    update_dashboard_context,
+    update_insights,
+)
 
 
 _AGENT_INSTRUCTIONS = """
-    You are helping users complete a project document using shared state.
+    You are helping users analyze PowerBI data using shared state.
 
     Rules:
     1. You receive current state in system context.
     2. Use the smallest matching tool:
-       - update_title(name)
-       - update_description(description)
-       - update_location(location)
-       - add_component(components)
-    3. Preserve existing data. Do not remove components unless the user explicitly asks.
-    4. For add_component, send the full updated components list.
+       - update_dashboard_context(dashboard_context)
+       - update_insights(current_insights)
+       - add_data_points(data_points)
+    3. Preserve existing data. Do not remove data points unless the user explicitly asks.
+    4. For add_data_points, send the full updated data points list.
     5. Never call multi_tool_use.parallel. Make tool calls sequentially.
     6. For multi-field updates, prefer sequential tool calls.
     7. After tool calls, reply briefly (1-2 sentences).
     8. Use ask_agent(question, context) to talk with another agent for information.
        Pass the current project state as context so the agent can give relevant answers.
-       Example: ask_agent("What tech stack fits?", context="name: MyApp, components: [React, Node]")
 """
 
 def _build_tools(client: SupportsChatGetResponse[Any]) -> list[Any]:
     tools: list[Any] = [
-        update_title,
-        update_description,
-        update_location,
-        add_component,
+        update_dashboard_context,
+        update_insights,
+        add_data_points,
         build_foundry_qa_tool(),
     ]
 
@@ -63,18 +66,8 @@ def local_agent(client: SupportsChatGetResponse[Any]) -> AgentFrameworkAgent:
     return AgentFrameworkAgent(
         agent=agent,
         name="local_agent",
-        description="Project agent",
-        state_schema={
-            "name": {"type": "string", "description": "The current project name"},
-            "description": {"type": "string", "description": "The current project description"},
-            "location": {"type": "object", "description": "The current project location"},
-            "components": {"type": "array", "description": "The current project components"},
-        },
-        predict_state_config={
-            "name": {"tool": "update_title", "tool_argument": "name"},
-            "description": {"tool": "update_description", "tool_argument": "description"},
-            "location": {"tool": "update_location", "tool_argument": "location"},
-            "components": {"tool": "add_component", "tool_argument": "components"},
-        },
+        description="PowerBI QA Assistant",
+        state_schema=STATE_SCHEMA,
+        predict_state_config=PREDICT_STATE_CONFIG,
         require_confirmation=False,
     )

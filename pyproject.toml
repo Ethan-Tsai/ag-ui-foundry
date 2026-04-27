@@ -1,0 +1,20 @@
+[project]
+name = "ada-index"
+version = "2.0.0"
+description = "Enterprise AG-UI platform powered by Azure AI Foundry and Agent Framework"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "agent-framework-core>=1.0.1",
+    "agent-framework-ag-ui>=1.0.0b260421",
+    "agent-framework-foundry>=1.0.0b260421",
+    "azure-ai-projects>=2.0.1",
+    "azure-identity>=1.25.0",
+    "fastapi>=0.116.1",
+    "httpx>=0.28.1",
+    "mcp>=1.10.0",
+    "openai>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "python-multipart>=0.0.20",
+    "uvicorn>=0.35.0",
+]

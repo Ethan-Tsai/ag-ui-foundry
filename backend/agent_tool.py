@@ -8,8 +8,7 @@ import asyncio
 import os
 
 from agent_framework import FunctionTool, tool
-from agent_framework.azure import AzureAIProjectAgentProvider
-from azure.ai.projects.aio import AIProjectClient
+from agent_framework_foundry import FoundryAgent
 from azure.identity.aio import DefaultAzureCredential
 
 
@@ -33,18 +32,13 @@ async def _create_foundry_qa_tool() -> FunctionTool:
     description_override = _get_optional_env("AZURE_AI_PROJECT_AGENT_DESCRIPTION")
 
     credential = DefaultAzureCredential()
-    project_client = AIProjectClient(endpoint=endpoint, credential=credential)
-    provider = AzureAIProjectAgentProvider(project_client=project_client)
 
-    if agent_version:
-        agent = await provider.get_agent(name=agent_name, version=agent_version)
-    else:
-        agent = await provider.get_agent(name=agent_name)
-
-    if agent is None:
-        await credential.close()
-        await project_client.close()
-        raise RuntimeError(f"Agent '{agent_name}' not found in the project.")
+    agent = FoundryAgent(
+        project_endpoint=endpoint,
+        agent_name=agent_name,
+        agent_version=agent_version,
+        credential=credential,
+    )
 
     description = (
         description_override

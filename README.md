@@ -1,228 +1,236 @@
----
-title: AG-UI Foundry v2 Example
-description: Example server integrating AG-UI with Azure AI Foundry v2 agents using Microsoft Agent Framework.
-author: Microsoft
-ms.date: 2026-02-24
-ms.topic: overview
-keywords:
-  - ag-ui
-  - azure ai foundry
-  - agents
-  - fastapi
-  - agent framework
-estimated_reading_time: 3
----
+﻿# WITS Agent Atelier
 
-## Overview
+WITS Agent Atelier is an internal enterprise AI Agent Portal that connects a Next.js / CopilotKit frontend to a FastAPI AG-UI backend powered by Azure AI Foundry agents and Microsoft Agent Framework.
 
-Integrate AG-UI with Azure AI Foundry v2 agents using a FastAPI server and Microsoft Agent Framework. The backend can run either a Foundry-backed agent or a local agent that calls a Foundry agent as a tool, exposing both through an AG-UI endpoint.
+The portal is designed for multi-agent discovery, agent-specific chat, runtime file upload, Code Interpreter generated file download, and optional Power BI / Fabric MCP integration.
 
-## Repository structure
+## Current Capabilities
 
-* `backend/` contains the Python backend:
-	* `backend/server.py`
-	* `backend/scripts/update_foundry_agent.py`
-	* `backend/requirements.txt`
-* `frontend/` contains the Next.js and CopilotKit UI.
-
-## Prerequisites
-
-* Python and pip
-* An Azure AI Foundry project with a published agent
-* Azure authentication via Azure CLI or environment-based credentials
-
-## Setup
-
-1. Install dependencies.
-
-	```bash
-	pip install -r backend/requirements.txt
-	```
-
-2. Configure environment variables. You can use a `.env` file or export them in your shell. Start with `env.sample` and fill in your values.
-
-	```bash
-	export AGENT_KIND="local"
-	# Use the project endpoint (do not include /openai/v1 or /responses).
-	export AZURE_AI_PROJECT_ENDPOINT="https://your-project-name.services.ai.azure.com/api/projects/your-project-name"
-	export AZURE_AI_PROJECT_AGENT_NAME="AgentSmith"
-	# Optional: export AZURE_AI_PROJECT_AGENT_VERSION="1.0"
-	# Optional: export AZURE_AI_PROJECT_AGENT_DESCRIPTION="Ask the Foundry agent a question"
-	# Local agent uses Foundry's OpenAI-compatible responses endpoint by default.
-	# Uses Entra ID auth (no API key).
-	export AZURE_OPENAI_RESPONSES_DEPLOYMENT_NAME="gpt-5-mini"
-
-	# Legacy Azure OpenAI chat (API key auth)
-	# export AZURE_OPENAI_CHAT_DEPLOYMENT_NAME="gpt-5-mini"
-	# export AZURE_OPENAI_ENDPOINT="https://your-resource-name.cognitiveservices.azure.com/openai/deployments/gpt-5-mini/chat/completions?api-version=2024-05-01-preview"
-	# export AZURE_OPENAI_API_KEY="your-azure-openai-api-key"
-	# Optional frontend UI text
-	export NEXT_PUBLIC_AGENT_NAME="ag-ui"
-	export NEXT_PUBLIC_IMPROVE_BUTTON_LABEL="Improve with AI"
-	export NEXT_PUBLIC_IMPROVE_PROMPT="Improve the project"
-	```
-
-Frontend environment variable loading order:
-
-* Values in `frontend/.env.local` and other Next.js `frontend/.env*` files are loaded first by Next.js.
-* Missing values fall back to the repository root `.env` file.
-* Existing values are never overridden by fallback loading.
-
-Use `NEXT_PUBLIC_` prefixes for any values the browser must read.
-
-3. Sign in to Azure if you are using Azure CLI credentials.
-
-	```bash
-	az login
-	```
-
-## Run the server
-
-You can run the backend with either agent implementation.
-
-* `local` uses a Foundry model deployment (responses endpoint) when configured, and calls the Foundry agent through the `ask_foundry` tool.
-* `foundry` loads the agent directly from Foundry.
-
-```bash
-python -m backend.server --agent local
-```
-
-Or set the default in your environment:
-
-```bash
-export AGENT_KIND="foundry"
-python -m backend.server
-```
-
-The server runs on <http://localhost:8000>. The AG-UI endpoint is available at <http://localhost:8000/ag-ui>.
-
-To update the Foundry agent tools:
-
-```bash
-python backend/scripts/update_foundry_agent.py --endpoint "https://<account>.services.ai.azure.com/api/projects/<project>" --agent-name "AgentSmith"
-```
-
-## Run the frontend
-
-The frontend is a minimal Next.js app that uses CopilotKit and proxies AG-UI requests through a local API route.
-
-1. Install Node dependencies.
-
-	```bash
-	npm run install:frontend
-	```
-
-2. Start the Next.js dev server.
-
-	```bash
-	npm run dev:frontend
-	```
-
-3. Open <http://localhost:3000>.
-
-By default, the CopilotKit route proxies to <http://localhost:8000/ag-ui>. To change it, set `AG_UI_ENDPOINT` in your environment before running the frontend.
-
-You can set frontend variables in either location:
-
-* `frontend/.env.local` for frontend-only overrides
-* root `.env` for shared backend and frontend values
-
-You can also configure the improve button text and the prompt it sends:
-
-* `NEXT_PUBLIC_AGENT_NAME` controls the frontend Copilot agent name.
-* `NEXT_PUBLIC_IMPROVE_BUTTON_LABEL` controls the button label.
-* `NEXT_PUBLIC_IMPROVE_PROMPT` controls the user message sent when the button is clicked.
+- Agent catalog: discover Azure AI Foundry agents and select the current agent for the conversation.
+- AG-UI chat: stream messages through CopilotKit to the FastAPI AG-UI endpoint.
+- Dynamic routing: pass `agentId` from the frontend to the backend and route each run to the selected Foundry agent.
+- Runtime file upload: upload files from the frontend and attach Foundry file IDs to the next agent run.
+- Generated file download: convert Code Interpreter hosted files into stable `/api/download` links.
+- Run context panel: show attached files, upload status, and suggested prompts.
+- Enterprise UI: WITS color palette, agent sidebar, current-agent header, chatroom layout, avatar identity, and responsive behavior.
+- Observability: backend request logging, upload/download logging, Foundry routing logs, and optional file logging.
 
 ## Architecture
 
-```
-┌────────────────────────────────────────────────────────────────────┐
-│                     BROWSER (localhost:3000)                       │
-│                                                                    │
-│  ┌──────────────────────────────┐  ┌────────────────────────────┐  │
-│  │        ProjectCard           │  │       CopilotChat          │  │
-│  │                              │  │                            │  │
-│  │  - Project name              │  │  "AI Project Assistant"    │  │
-│  │  - Description               │  │                            │  │
-│  │  - Location (country, dist,  │  │  User messages ──────>     │  │
-│  │    lat, long)                │  │  <────── Agent replies     │  │
-│  │  - Components [{type, desc,  │  │  (streaming)               │  │
-│  │    env_impact}]              │  │                            │  │
-│  │                              │  │                            │  │
-│  │  useCoAgent() <── state ──> useCopilotChat()                 │  │
-│  │  (bidirectional sync)        │  │                            │  │
-│  └──────────────────────────────┘  └────────────────────────────┘  │
-│                           CopilotKit (AG-UI protocol)              │
-└──────────────────────────────┬─────────────────────────────────────┘
-                               │  HTTP (GraphQL)
-                               v
-┌────────────────────────────────────────────────────────────────────┐
-│              NEXT.JS API ROUTE (proxy)                             │
-│              /api/copilotkit/[integrationId]/route.ts              │
-│                                                                    │
-│  - Extracts method & agentId from payload                          │
-│  - Resolves aliases: ag-ui | librarian | gap-analyst               │
-│  - Forwards to AG_UI_ENDPOINT                                      │
-└──────────────────────────────┬─────────────────────────────────────┘
-                               │  HTTP POST
-                               v
-┌────────────────────────────────────────────────────────────────────┐
-│              FASTAPI BACKEND (localhost:8000)                      │
-│              POST /ag-ui  (agent-framework-ag-ui)                  │
-│                                                                    │
-│    ┌ - - - - AGENT_KIND env var selects mode - - - - - - ┐         │
-│                                                                    │
-│    │ ┌─────────────────────┐   ┌──────────────────────┐  │         │
-│      │  LOCAL AGENT        │   │  FOUNDRY AGENT       │            │
-│    │ │  (default)          │OR │                      │  │         │
-│      │                     │   │  Loaded at startup   │            │
-│    │ │  AzureOpenAI Chat   │   │  from Azure AI       │  │         │
-│      │  Client (LLM)       │   │  Foundry project     │            │
-│    │ └─────────┬───────────┘   └──────────┬───────────┘  │         │
-│                │                          │                        │
-│    └ - - - - - ┼ - - - - - - - - - - - - -┼ - - - - - - -┘         │
-│                │                          │                        │
-│                v                          v                        │
-│  ┌──────────────────────────────────────────────────────────┐      │
-│  │  SHARED TOOLS (state.py)                                 │      │
-│  │                                                          │      │
-│  │  update_title(name)          update_location(location)   │      │
-│  │  update_description(desc)    add_component(components)   │      │
-│  │  update_info(project)        ask_agent(q) [local only]   │      │
-│  │                                                          │      │
-│  │  predict_state_config maps tool args -> state fields     │      │
-│  └──────────────────────────────────────────────────────────┘      │
-│                                                                    │
-│  AgentFrameworkAgent wrapper -> streams state + text back          │
-└────────────┬──────────────────────────────┬────────────────────────┘
-             │                              │
-             v                              v
-┌────────────────────────┐    ┌──────────────────────────────┐
-│    Azure OpenAI        │    │    Azure AI Foundry          │
-│                        │    │                              │
-│  Chat Completions API  │    │  AIProjectClient (async)     │
-│  (gpt-5-mini, etc.)    │    │  Prompt definition lookup    │
-│                        │    │  + Responses API client      │
-│  Used by: LOCAL agent  │    │  Used by: FOUNDRY agent      │
-│  for LLM reasoning     │    │  + ask_agent() tool (LOCAL)  │
-└────────────────────────┘    └──────────────────────────────┘
-             │                              │
-             └─────────────┬────────────────┘
-                           v
-             ┌────────────────────────┐
-             │ DefaultAzureCredential |
-             │ (azure-identity)       │
-             │                        │
-             │ az login / env /       │
-             │ managed identity       │
-             └────────────────────────┘
+```text
+Browser / Next.js frontend (localhost:3000)
+  |
+  |  /api/copilotkit/[integrationId]
+  |  /api/upload
+  |  /api/download
+  |  /api/agents
+  |  /api/agent-info
+  v
+Next.js API proxy
+  |
+  |  AG_UI_ENDPOINT
+  v
+FastAPI backend (localhost:8000)
+  |
+  |  /ag-ui
+  v
+Microsoft Agent Framework AG-UI adapter
+  |
+  v
+DynamicRouterAgent
+  |
+  |-- Azure AI Foundry Agent
+  |-- FileAwareFoundryChatClient
+  |-- structured_inputs for uploaded file IDs
+  |-- Code Interpreter output link transform
+  v
+Azure AI Foundry project / agents / tools
 ```
 
-**State flow:** User types in chat → Agent reasons (LLM) → Calls tool (e.g. `update_title`) → `predict_state_config` maps tool arg to state field → AG-UI streams state delta → Frontend `useCoAgent()` receives update → `ProjectCard` re-renders with visual ping on changed fields.
+## Repository Structure
 
-## Contributing
+```text
+.
+├── backend/                         FastAPI backend and Agent Framework integration
+│   ├── server.py                    API server, CORS, AG-UI endpoint, upload/download routes
+│   ├── dynamic_agent.py             Dynamic Foundry agent router by selected agentId
+│   ├── foundry_runtime.py           File-aware Foundry runtime and generated download links
+│   ├── foundry_files.py             Foundry file upload/download helpers
+│   ├── foundry_agent.py             Foundry agent metadata and shared tool wiring
+│   ├── state.py                     AG-UI shared state schema and tool state mapping
+│   └── requirements.txt             Python runtime dependencies
+├── frontend/                        Next.js frontend
+│   ├── app/page.tsx                 WITS Agent Atelier UI and CopilotKit integration
+│   ├── app/style.css                Enterprise UI styling and chatroom layout
+│   ├── app/api/                     Frontend API proxy routes
+│   ├── public/favicon.ico           Agent avatar and browser favicon
+│   └── Dockerfile                   Frontend container build
+├── PBI/                             Optional Power BI / Fabric MCP helper utilities
+├── create_or_update_agent_v3.py     Optional Foundry agent creation/update script
+├── docker-compose.yml               Backend + frontend compose entrypoint
+├── docker-compose.frontend.yml      Frontend-only compose entrypoint
+├── env.sample                       Safe environment variable template
+└── walkthrough.md                   Project walkthrough and implementation notes
+```
 
-* Fork the repository and create a feature branch.
-* Keep changes focused and add or update documentation as needed.
-* Run the server locally to validate behavior.
-* Open a pull request with a clear description of the change.
+## Prerequisites
+
+- Python 3.11 or later
+- Node.js 20 or Docker Desktop
+- Azure CLI or Azure Developer CLI authenticated to the correct tenant
+- Azure AI Foundry project with at least one published agent
+- Required RBAC permissions for the Foundry project and related Azure resources
+
+## Environment Setup
+
+Copy the sample file and fill in local values:
+
+```powershell
+Copy-Item env.sample .env
+```
+
+Required backend variables:
+
+| Variable | Purpose | Secret |
+| --- | --- | --- |
+| `AGENT_KIND` | `foundry` or `local` backend mode | No |
+| `AZURE_AI_PROJECT_ENDPOINT` | Azure AI Foundry project endpoint | No, but environment-specific |
+| `AZURE_AI_PROJECT_AGENT_NAME` | Default Foundry agent/router name | No |
+| `AZURE_OPENAI_RESPONSES_DEPLOYMENT_NAME` | Model deployment for local mode/fallback client | No |
+| `AG_UI_ENDPOINT` | Frontend proxy target for backend AG-UI endpoint | No |
+
+Sensitive optional variables:
+
+| Variable | Notes |
+| --- | --- |
+| `AZURE_OPENAI_API_KEY` | Legacy API-key auth only. Prefer Entra ID auth. Never commit a real key. |
+| `FOUNDRY_MCP_AUTHORIZATION` | Bearer token for MCP testing only. Never commit. |
+| `FOUNDRY_MCP_HEADERS_JSON` | May contain auth headers. Never commit real values. |
+
+Operational variables:
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `HOST` | `0.0.0.0` | Backend bind host |
+| `PORT` | `8000` | Backend port |
+| `CORS_ALLOW_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Comma-separated allowed browser origins |
+| `FOUNDRY_FILE_SLOT_COUNT` | `5` | Number of uploaded file IDs mapped into `structured_inputs` |
+| `LOG_LEVEL` | `INFO` | Use `DEBUG` only for local troubleshooting |
+| `ENABLE_DEBUG_LOGGING` | unset | When set, writes backend logs to `backend/log/server.log` |
+
+## Run Locally
+
+Install backend dependencies:
+
+```powershell
+pip install -r backend/requirements.txt
+```
+
+Start backend:
+
+```powershell
+python backend/server.py --agent foundry
+```
+
+Install frontend dependencies:
+
+```powershell
+npm --prefix frontend install
+```
+
+Start frontend:
+
+```powershell
+npm --prefix frontend run dev
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+## Run With Docker
+
+Frontend only:
+
+```powershell
+docker-compose -f docker-compose.frontend.yml up -d --build
+```
+
+Full stack, if backend env is configured:
+
+```powershell
+docker-compose up -d --build
+```
+
+The frontend container uses:
+
+```text
+AG_UI_ENDPOINT=http://host.docker.internal:8000/ag-ui
+```
+
+This allows the frontend container to call a backend running on the host machine.
+
+## File Upload and Generated Files
+
+Runtime upload flow:
+
+1. Frontend posts files to `/api/upload`.
+2. Next.js forwards the request to the backend.
+3. Backend uploads files to Azure AI Foundry file storage.
+4. Returned Foundry file IDs are attached to the CopilotKit runtime URL as `fileIds`.
+5. `FileAwareFoundryChatClient` maps file IDs into `structured_inputs`.
+
+Generated file flow:
+
+1. Foundry / Code Interpreter emits hosted file annotations or outputs.
+2. `attach_download_links_transform()` detects generated files.
+3. Backend appends `/api/download` links to the assistant response.
+4. Frontend renders those links as generated file cards.
+
+## Logging and Debugging
+
+Default logging writes to console. To enable file logging locally:
+
+```powershell
+$env:ENABLE_DEBUG_LOGGING = "1"
+$env:LOG_LEVEL = "DEBUG"
+python backend/server.py --agent foundry
+```
+
+Logs include request id, method/path, agentId, status, duration, upload/download status, Foundry routing, file attachment count, and generated file detection. Logs intentionally avoid writing raw file bytes and should not include secrets.
+
+## Security Notes
+
+- `.env` and `.env.*` are ignored by git.
+- Do not commit API keys, bearer tokens, `.pem`, `.pfx`, `.key`, exported Azure tokens, or local credential caches.
+- Prefer Entra ID (`DefaultAzureCredential`) over API keys.
+- Only `NEXT_PUBLIC_*` variables are safe to expose to the browser. Do not put secrets in `NEXT_PUBLIC_*` variables.
+- CORS is restricted by `CORS_ALLOW_ORIGINS`; avoid wildcard origins for shared environments.
+- `backend/log/`, local uploads/downloads, temporary files, BI exports, and common credential file types are ignored.
+- If a real secret was ever committed, rotate it in Azure before pushing to GitHub.
+
+## Pre-Push Checklist
+
+Run these before pushing:
+
+```powershell
+git status --short
+git diff --stat
+git check-ignore -v .env
+python -c "import ast, pathlib; files=['backend/server.py','backend/dynamic_agent.py','backend/foundry_files.py','backend/foundry_runtime.py']; [ast.parse(pathlib.Path(p).read_text(encoding='utf-8-sig'), filename=p) for p in files]; print('python syntax ok')"
+docker-compose -f docker-compose.frontend.yml build
+```
+
+Manual checks:
+
+- Confirm `.env` is not staged.
+- Confirm any new data files are intentional.
+- Confirm `frontend/public/favicon.ico` exists for the chat avatar and favicon route.
+- Confirm backend can reach Azure AI Foundry with your logged-in identity.
+- Confirm `/api/health` reports backend connectivity when backend is running.
+
+## Notes for Reviewers
+
+This repo is intended as an internal enterprise AI portal foundation. The current implementation prioritizes secure local configuration, clear Azure AI Foundry integration, file-aware agent runs, and a production-quality frontend layout. Secrets are expected to be supplied by local `.env`, CI/CD secret stores, or Azure managed identity, never by committed source files.

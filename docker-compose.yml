@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - PORT=3000
+      # Use the docker internal network to communicate with backend
+      - AG_UI_ENDPOINT=http://backend:8000/ag-ui
+    depends_on:
+      - backend

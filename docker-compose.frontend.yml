@@ -1,0 +1,15 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - PORT=3000
+      # Connect to the backend running locally on the host machine via VS Code
+      - AG_UI_ENDPOINT=http://host.docker.internal:8000/ag-ui
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

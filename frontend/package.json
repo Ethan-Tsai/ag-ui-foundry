@@ -13,6 +13,7 @@
     "@copilotkit/react-ui": "latest",
     "@copilotkit/runtime-client-gql": "latest",
     "dotenv": "latest",
+    "lucide-react": "latest",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest"

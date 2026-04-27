@@ -208,6 +208,37 @@ pnpm-debug.log*
 # Ruff stuff:
 .ruff_cache/
 
+# Project runtime outputs
+backend/log/
+logs/
+*.log.*
+uploads/
+downloads/
+tmp/
+temp/
+
+# Local Azure / cloud credentials and exported tokens
+.azure/
+.azd/
+azureProfile.json
+accessTokens.json
+msal_token_cache*
+*.pem
+*.key
+*.pfx
+*.p12
+*.crt
+*.cer
+*.publishsettings
+
+# Local BI/export artifacts; commit only intentional source files
+*.pbix
+*.pbit
+*.csv
+*.xlsx
+*.xls
+*.parquet
+
 # PyPI configuration file
 .pypirc
 
